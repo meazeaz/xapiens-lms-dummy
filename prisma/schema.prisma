@@ -1,0 +1,68 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique // <-- Perbaikan: pakai @ bukan =
+  name         String
+  password     String
+  role         String        @default("USER") // "USER", "ADMIN", "INSTRUCTOR"
+  enrollments  Enrollment[]
+  certificates Certificate[]
+  grades       Grade[]
+}
+
+model Course {
+  id          String       @id @default(uuid())
+  title       String
+  description String
+  enrollments Enrollment[]
+  questions   Question[]   
+  grades      Grade[]
+}
+
+model Enrollment {
+  id         String   @id @default(uuid())
+  userId     String
+  courseId   String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade) // <-- Perbaikan: pakai @ bukan =
+  enrolledAt DateTime @default(now())
+}
+
+model Question {
+  id            String   @id @default(uuid())
+  courseId      String
+  course        Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  questionText  String   
+  optionA       String
+  optionB       String
+  optionC       String
+  optionD       String
+  correctOption String   // "A", "B", "C", atau "D"
+}
+
+model Grade {
+  id        String   @id @default(uuid())
+  userId    String
+  courseId  String
+  score     Int      
+  isPassed  Boolean  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Certificate {
+  id       String   @id @default(uuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title    String   
+  issuedAt DateTime @default(now())
+}
