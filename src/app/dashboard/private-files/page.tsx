@@ -1,29 +1,78 @@
-'use client'; // Wajib ditambahkan agar bisa membaca session di frontend
+'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useSession } from 'next-auth/react';
 
 export default function PrivateFilesPage() {
   const { data: session } = useSession();
-
-  // Mengambil nama user dari session NextAuth, jika belum termuat gunakan fallback string kosong/strip
   const currentUserName = session?.user?.name || 'Loading...';
+  const userId = (session?.user as any)?.id;
+
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState({ text: '', isError: false });
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Ukuran file terlalu besar! Maksimal 5MB.');
+        return;
+      }
+      setSelectedFile(file);
+      setStatusMessage({ text: '', isError: false });
+    }
+  };
+
+ const handleUploadSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedFile || !userId) {
+      alert('Silakan pilih file terlebih dahulu!');
+      return;
+    }
+
+    setUploading(true); // <-- PERBAIKAN: Pakai kurung (true), bukan = true
+    setStatusMessage({ text: '', isError: false });
+
+    try {
+      // Menembak ke folder 'privates-files' (pakai S) sesuai folder backend-mu
+      const res = await fetch('/api/privates-files/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: userId,
+          fileName: selectedFile.name,
+        }),
+      });
+
+      if (res.ok) {
+        setStatusMessage({ text: `✅ Berhasil! File "${selectedFile.name}" telah aman tersimpan di Private Files Anda.`, isError: false });
+        setSelectedFile(null);
+      } else {
+        setStatusMessage({ text: '❌ Gagal mengunggah file ke server database.', isError: true });
+      }
+    } catch (err) {
+      console.error(err);
+      setStatusMessage({ text: '❌ Terjadi kendala jaringan saat proses unggah.', isError: true });
+    } finally {
+      setUploading(false); // <-- PERBAIKAN: Pakai kurung (false), bukan = false
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-full font-sans bg-[#f4f6f8]">
       <div className="p-4 md:p-8 space-y-6 flex-grow">
         
-        {/* 1. Header & Breadcrumbs */}
+        {/* Header */}
         <div className="bg-white border border-gray-200 shadow-sm p-6 relative">
           <div className="flex items-center space-x-4 mb-6">
-            <div className="w-16 h-16 bg-sky-600 text-white rounded-full flex items-center justify-center font-bold text-2xl shadow-sm">
+            <div className="w-16 h-16 bg-sky-600 text-white rounded-full flex items-center justify-center font-bold text-3xl shadow-sm">
               {session?.user?.name ? session.user.name.charAt(0).toUpperCase() : '👤'}
             </div>
             <div>
               <h1 className="text-2xl font-light text-gray-800 flex items-center gap-3">
-                {/* NAMA USER SEKARANG SUDAH DINAMIS 🎉 */}
                 {currentUserName} 
-                <span className="text-sm text-gray-500 flex items-center gap-1 cursor-pointer hover:text-blue-600 select-none">
+                <span className="text-sm text-gray-500 flex items-center gap-1 cursor-not-allowed select-none">
                   💬 Message
                 </span>
               </h1>
@@ -31,103 +80,85 @@ export default function PrivateFilesPage() {
           </div>
           
           <div className="flex flex-wrap items-center text-sm text-gray-500 gap-2">
-            <span className="cursor-pointer hover:underline">Dashboard</span>
+            <span>Dashboard</span>
             <span>/</span>
-            <span className="cursor-pointer hover:underline">Site pages</span>
+            <span>Site pages</span>
             <span>/</span>
             <span className="text-gray-800 bg-gray-100 px-2 py-1 rounded-sm">Private files</span>
           </div>
         </div>
 
-        {/* 2. Private Files Content */}
+        {/* Content Box */}
         <div className="bg-white border border-gray-200 shadow-sm p-6">
           <div className="flex justify-between items-end mb-2">
-            <h2 className="text-sm font-semibold text-gray-700">Files</h2>
-            <p className="text-xs text-gray-500">
-              Maximum size for new files: 98MB, overall limit: 100MB
-            </p>
+            <h2 className="text-sm font-semibold text-gray-700">Files Upload Manager</h2>
+            <p className="text-xs text-gray-500">Maximum size for new files: 5MB</p>
           </div>
           
-          {/* File Manager Box */}
-          <div className="border border-gray-300 rounded-sm bg-white mb-4">
-            
-            {/* Toolbar Atas */}
-            <div className="bg-[#f8f9fa] border-b border-gray-300 p-2 flex justify-between items-center text-gray-600">
-              <div className="flex gap-1">
-                <button className="p-1 hover:bg-gray-200 rounded text-lg" title="Add file">📄</button>
-                <button className="p-1 hover:bg-gray-200 rounded text-lg" title="Create folder">📁</button>
-              </div>
-              <div className="flex gap-1 border-l border-gray-300 pl-2">
-                <button className="p-1 bg-gray-200 rounded" title="Display folder with file icons">🔲</button>
-                <button className="p-1 hover:bg-gray-200 rounded" title="Display folder with file details">🔠</button>
-                <button className="p-1 hover:bg-gray-200 rounded" title="Display folder as file tree">🌲</button>
-              </div>
+          {statusMessage.text && (
+            <div className={`p-3 mb-4 text-xs font-medium border rounded-sm ${statusMessage.isError ? 'bg-red-50 text-red-700 border-red-300' : 'bg-green-50 text-green-700 border-green-300'}`}>
+              {statusMessage.text}
+            </div>
+          )}
+
+          <form onSubmit={handleUploadSubmit} className="border border-gray-300 rounded-sm bg-white mb-4">
+            <div className="bg-[#f8f9fa] border-b border-gray-300 p-2 text-xs text-gray-600 font-medium">
+              📁 Area Penyimpanan Dokumen Siswa
             </div>
 
-            {/* Folder Path */}
-            <div className="p-2 border-b border-gray-200 text-sm text-[#0ea5e9] flex items-center gap-2">
-              <span>📁</span> Files
-            </div>
-
-            {/* Dropzone Area */}
             <div className="p-4">
-              <div className="border-2 border-dashed border-gray-300 bg-white p-16 flex flex-col items-center justify-center text-center transition hover:bg-gray-50">
-                <div className="text-blue-400 text-5xl mb-4">⬇️</div>
-                <p className="text-sm text-gray-600">
-                  You can drag and drop files here to add them.
-                </p>
-              </div>
+              <label className="border-2 border-dashed border-gray-300 bg-white p-12 flex flex-col items-center justify-center text-center transition hover:bg-gray-50 cursor-pointer block relative">
+                <input 
+                  type="file" 
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                  onChange={handleFileChange}
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" 
+                />
+                <div className="text-sky-500 text-4xl mb-3">⬇️</div>
+                {selectedFile ? (
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-green-600">
+                      📌 File Terpilih Siap Diunggah:
+                    </p>
+                    <p className="text-xs text-gray-800 font-mono bg-gray-100 px-2 py-1 inline-block border rounded-sm">
+                      {selectedFile.name}
+                    </p>
+                    <p className="text-[10px] text-gray-400">
+                      ({Math.round(selectedFile.size / 1024)} KB)
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">
+                      Click to browse or drag and drop your file here
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">PDF, Word, JPG, PNG</p>
+                  </div>
+                )}
+              </label>
             </div>
-            
-          </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-2">
-            <button className="bg-[#1565c0] hover:bg-blue-800 text-white text-sm px-5 py-2 transition rounded-sm font-medium">
-              Save changes
-            </button>
-            <button className="bg-[#e9ecef] hover:bg-gray-300 text-gray-700 text-sm px-5 py-2 transition rounded-sm border border-gray-300">
-              Cancel
-            </button>
-          </div>
-
+            <div className="bg-gray-50 p-3 border-t border-gray-200 flex gap-2">
+              <button 
+                type="submit"
+                disabled={uploading || !selectedFile}
+                className="bg-[#1565c0] hover:bg-blue-800 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white text-xs px-5 py-2 transition rounded-sm font-medium cursor-pointer shadow-sm"
+              >
+                {uploading ? 'Sedang Mengunggah...' : 'Save changes / Upload'}
+              </button>
+              <button 
+                type="button"
+                onClick={() => setSelectedFile(null)}
+                disabled={!selectedFile}
+                className="bg-white hover:bg-gray-100 border text-gray-700 text-xs px-5 py-2 transition rounded-sm disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
         </div>
 
       </div>
-
-      {/* FOOTER */}
-      <footer className="bg-[#eef2f6] border-t border-gray-200 mt-10">
-        <div className="py-10 px-8 flex flex-col md:flex-row justify-between items-start relative overflow-hidden">
-          <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/cubes.png')" }}></div>
-          <div className="relative z-10 mb-8 md:mb-0">
-            <h3 className="text-[#1565c0] text-xl font-light mb-4">Stay in touch</h3>
-            <ul className="space-y-2 text-[#1565c0] text-sm">
-              <li className="flex items-center gap-2"><span className="text-gray-400">🌐</span> https://xapiens.id/</li>
-              <li className="flex items-center gap-2"><span className="text-gray-400">📞</span> +62 21 29770900</li>
-              <li className="flex items-center gap-2"><span className="text-gray-400">✉️</span> hello@xapiens.id</li>
-            </ul>
-          </div>
-          <div className="relative z-10 flex flex-col items-end">
-            <div className="flex space-x-1 mb-4">
-              {['fb', 'tw', 'in', 'yt', 'ig', 'wa'].map((social) => (
-                <div key={social} className="w-7 h-7 flex items-center justify-center text-white text-xs cursor-pointer rounded-sm" style={{backgroundColor: social === 'wa' ? '#25D366' : social === 'yt' ? '#FF0000' : social === 'ig' ? '#C13584' : '#1565c0'}}>
-                  {social}
-                </div>
-              ))}
-            </div>
-            <div className="text-sm text-gray-600 mb-3 flex items-center gap-2 cursor-pointer hover:underline">
-              <span>📁</span> Data retention summary
-            </div>
-            <button className="bg-[#1565c0] text-white px-4 py-2 text-sm flex items-center gap-2 hover:bg-blue-800 transition rounded-sm">
-              <span>📱</span> Get the mobile app
-            </button>
-          </div>
-        </div>
-        <div className="bg-[#f97316] text-white text-center py-3 text-sm font-medium">
-          PROUDLY MADE WITH <span className="font-bold">Next.js</span>
-          <div className="text-xs font-light mt-1">Made with ❤️ by Xapiens IT</div>
-        </div>
-      </footer>
     </div>
   );
 }

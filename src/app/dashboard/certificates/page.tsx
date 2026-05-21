@@ -1,11 +1,33 @@
 import React from 'react';
+import prisma from '@/lib/prisma';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { redirect } from 'next/navigation';
 
-export default function CertificatesPage() {
+export default async function CertificatesPage() {
+  // 1. Amankan Sesi di Tingkat Server & Ambil ID User yang sedang login
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    redirect('/');
+  }
+
+  const userId = (session.user as any).id;
+
+  // 2. Tarik Seluruh Data dari Tabel Certificate untuk Pengguna Ini
+  const allCertificates = await prisma.certificate.findMany({
+    where: { userId: userId },
+    orderBy: { issuedAt: 'desc' },
+  });
+
+  // 3. Pisahkan Secara Logis: Mana yang Sertifikat Internal Ujian, Mana yang Unggahan Eksternal
+  const internalCertificates = allCertificates.filter(cert => !cert.title.startsWith('[Eksternal]'));
+  const externalUploadedFiles = allCertificates.filter(cert => cert.title.startsWith('[Eksternal]'));
+
   return (
     <div className="flex flex-col min-h-full font-sans bg-[#f4f6f8]">
       <div className="p-4 md:p-8 space-y-6 flex-grow">
         
-        {/* 1. Header & Breadcrumbs */}
+        {/* HEADER & BREADCRUMB */}
         <div className="bg-white border border-gray-200 shadow-sm p-6">
           <h1 className="text-3xl font-light text-[#2b3a4a] mb-4">Xapiens Learning Center</h1>
           <div className="flex flex-wrap items-center text-sm text-gray-500 gap-2">
@@ -15,52 +37,91 @@ export default function CertificatesPage() {
           </div>
         </div>
 
-        {/* 2. Certificates Content */}
-        <div className="bg-white border border-gray-200 shadow-sm p-6">
-          <div className="mb-6">
-            <h2 className="text-2xl font-light text-[#2b3a4a] mb-1">My certificates</h2>
-            <p className="text-lg text-gray-500 font-light">Certificates from all courses</p>
+        {/* KONTEN UTAMA */}
+        <div className="bg-white border border-gray-200 shadow-sm p-6 space-y-8">
+          <div>
+            <h2 className="text-2xl font-light text-[#2b3a4a] mb-1">My Certificates & Portfolios</h2>
+            <p className="text-sm text-gray-500 font-light">Manajemen sertifikat kompetensi internal LMS dan berkas lampiran eksternal siswa.</p>
           </div>
-          
-          {/* Empty State Box */}
-          <div className="border border-gray-300 rounded-sm p-4 bg-white text-sm text-gray-700">
-            You have no certificates yet.
+
+          {/* SEKSI A: SERTIFIKAT KELULUSAN KURSUS INTERNAL (DARI KUIS) */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider border-b pb-2 flex items-center gap-2">
+              🎓 Official Course Certificates ({internalCertificates.length})
+            </h3>
+            
+            {internalCertificates.length === 0 ? (
+              <div className="border border-gray-200 rounded-sm p-4 bg-gray-50 text-xs text-gray-500">
+                Belum ada sertifikat kursus internal yang terbit. Silakan selesaikan kuis di menu <a href="/dashboard/site-home" className="text-blue-600 hover:underline">Site Home</a> dengan skor minimal 70.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {internalCertificates.map((cert) => (
+                  <div key={cert.id} className="border border-sky-200 bg-sky-50/20 p-5 rounded-sm flex items-center justify-between shadow-sm hover:border-sky-400 transition">
+                    <div className="space-y-1 text-xs">
+                      <div className="font-bold text-sky-600 uppercase tracking-wide">LMS Certified</div>
+                      <h4 className="text-sm font-semibold text-gray-800">{cert.title}</h4>
+                      <p className="text-gray-400">
+                        Diterbitkan: {new Date(cert.issuedAt).toLocaleDateString('id-ID', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}
+                      </p>
+                    </div>
+                    <div className="text-2xl p-2 bg-white border rounded-full shadow-sm select-none">📜</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
+
+          {/* SEKSI B: DOKUMEN / SERTIFIKAT EKSTERNAL (DARI PRIVATE FILES UPLOAD) */}
+          <div className="space-y-4 pt-4">
+            <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider border-b pb-2 flex items-center gap-2">
+              📁 External Private Portfolios ({externalUploadedFiles.length})
+            </h3>
+            
+            {externalUploadedFiles.length === 0 ? (
+              <div className="border border-gray-200 rounded-sm p-4 bg-gray-50 text-xs text-gray-500">
+                Belum ada berkas eksternal yang diunggah. Siswa dapat mengunggah portofolio tambahan melalui halaman <a href="/dashboard/private-files" className="text-blue-600 hover:underline">Private Files</a>.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {externalUploadedFiles.map((cert) => {
+                  // Hilangkan teks penanda '[Eksternal]' agar nama file asli terlihat bersih di layar
+                  const cleanFileName = cert.title.replace('[Eksternal] ', '');
+                  return (
+                    <div key={cert.id} className="border border-emerald-200 bg-emerald-50/10 p-5 rounded-sm flex items-center justify-between shadow-sm hover:border-emerald-400 transition">
+                      <div className="space-y-1 text-xs">
+                        <div className="font-bold text-emerald-600 uppercase tracking-wide">User Attachment File</div>
+                        <h4 className="text-sm font-medium text-gray-800 truncate max-w-[220px]" title={cleanFileName}>
+                          {cleanFileName}
+                        </h4>
+                        <p className="text-gray-400">
+                          Diunggah pada: {new Date(cert.issuedAt).toLocaleDateString('id-ID', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </p>
+                      </div>
+                      <div className="text-2xl p-2 bg-white border rounded-full shadow-sm select-none">📁</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
         </div>
 
       </div>
 
       {/* FOOTER */}
       <footer className="bg-[#eef2f6] border-t border-gray-200 mt-10">
-        <div className="py-10 px-8 flex flex-col md:flex-row justify-between items-start relative overflow-hidden">
-          <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/cubes.png')" }}></div>
-          <div className="relative z-10 mb-8 md:mb-0">
-            <h3 className="text-[#1565c0] text-xl font-light mb-4">Stay in touch</h3>
-            <ul className="space-y-2 text-[#1565c0] text-sm">
-              <li className="flex items-center gap-2"><span className="text-gray-400">🌐</span> https://xapiens.id/</li>
-              <li className="flex items-center gap-2"><span className="text-gray-400">📞</span> +62 21 29770900</li>
-              <li className="flex items-center gap-2"><span className="text-gray-400">✉️</span> hello@xapiens.id</li>
-            </ul>
-          </div>
-          <div className="relative z-10 flex flex-col items-end">
-            <div className="flex space-x-1 mb-4">
-              {['fb', 'tw', 'in', 'yt', 'ig', 'wa'].map((social) => (
-                <div key={social} className="w-7 h-7 flex items-center justify-center text-white text-xs cursor-pointer rounded-sm" style={{backgroundColor: social === 'wa' ? '#25D366' : social === 'yt' ? '#FF0000' : social === 'ig' ? '#C13584' : '#1565c0'}}>
-                  {social}
-                </div>
-              ))}
-            </div>
-            <div className="text-sm text-gray-600 mb-3 flex items-center gap-2 cursor-pointer hover:underline">
-              <span>📁</span> Data retention summary
-            </div>
-            <button className="bg-[#1565c0] text-white px-4 py-2 text-sm flex items-center gap-2 hover:bg-blue-800 transition rounded-sm">
-              <span>📱</span> Get the mobile app
-            </button>
-          </div>
-        </div>
         <div className="bg-[#f97316] text-white text-center py-3 text-sm font-medium">
-          PROUDLY MADE WITH <span className="font-bold">Next.js</span>
-          <div className="text-xs font-light mt-1">Made with ❤️ by Xapiens IT</div>
+          PROUDLY MADE WITH <span className="font-bold">Next.js & PostgreSQL (Dual-Source Sync)</span>
         </div>
       </footer>
     </div>

@@ -84,8 +84,8 @@ export default function DashboardLayout({
                 </a>
               </li>
 
-              {/* IMPLEMENTASI POIN 1 (RBAC): Menu ini HANYA akan dirender jika user berkepentingan memiliki role 'ADMIN' */}
-              {userRole === 'ADMIN' && (
+              {/* IMPLEMENTASI RBAC: Menu ini muncul jika yang login ADMIN atau INSTRUCTOR */}
+              {(userRole === 'ADMIN' || userRole === 'INSTRUCTOR') && (
                 <li>
                   <a href="/dashboard/site-administration" className="flex items-center px-6 py-3 border-l-4 border-amber-500 bg-amber-500/10 text-amber-400 font-medium transition">
                     <span className="mr-3">⚙️</span> Site administration
