@@ -1,23 +1,9 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import { getServerSession } from 'next-auth';
-// Pastikan path authOptions ini sesuai dengan struktur project Next-Auth kawan
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'; 
+import prisma from '@/lib/prisma';
 
-const prisma = new PrismaClient();
-
+// PASTIKAN tertulis huruf BESAR semua kawan: POST
 export async function POST(req: Request) {
   try {
-    // 1. Proteksi Keamanan Keamanan/Role (Opsional tapi penting untuk Admin)
-    const session = await getServerSession(authOptions);
-    if (!session || (session.user as any).role !== 'ADMIN') {
-      return NextResponse.json(
-        { error: 'Akses ditolak. Hanya Admin yang dapat membuat kelas.' },
-        { status: 403 }
-      );
-    }
-
-    // 2. Ambil payload data kompleks dari Frontend
     const body = await req.json();
     const { 
       title, 
@@ -37,26 +23,26 @@ export async function POST(req: Request) {
       );
     }
 
-    // 3. Simpan ke database PostgreSQL menggunakan Transaksi Bertingkat Prisma
+    // Simpan ke database PostgreSQL menggunakan Transaksi Bertingkat Prisma
     const newCourse = await prisma.course.create({
       data: {
         title: title,
         description: description,
         instructorName: instructorName,
-        imageUrl: imageUrl || null, // Jika kosong, set jadi null di database
-        videoUrl: videoUrl || null,   // Jika kosong, set jadi null di database
+        imageUrl: imageUrl || null,
+        videoUrl: videoUrl || null,
         
-        // Relasi One-to-Many ke tabel Chapter
+        // Input array relasi Bab Materi dinamis
         chapters: {
-          create: chapters.map((ch: any) => ({
+          create: (chapters || []).map((ch: any) => ({
             title: ch.title,
             summary: ch.summary,
           })),
         },
 
-        // Relasi One-to-Many ke tabel Question (Kuis)
+        // Input array relasi Pertanyaan Kuis dinamis
         questions: {
-          create: questions.map((q: any) => ({
+          create: (questions || []).map((q: any) => ({
             questionText: q.questionText,
             optionA: q.optionA,
             optionB: q.optionB,
@@ -66,30 +52,19 @@ export async function POST(req: Request) {
           })),
         },
       },
-      // Include hasil relasi agar bisa dikembalikan sebagai respons sukses
       include: {
         chapters: true,
         questions: true,
       }
     });
 
-    // 4. Kembalikan respons sukses ke frontend
-    return NextResponse.json(
-      { 
-        message: 'Sukses menyimpan ke database!', 
-        course: newCourse 
-      }, 
-      { status: 201 }
-    );
+    return NextResponse.json({ success: true, course: newCourse }, { status: 201 });
 
   } catch (error: any) {
-    console.error('Error Database Prisma:', error);
+    console.error('🔴 ERROR API DB PRISMA:', error);
     return NextResponse.json(
-      { error: 'Terjadi kegagalan sistem database backend.', details: error.message },
+      { error: 'Gagal memproses penyimpanan ke database PostgreSQL.', details: error.message },
       { status: 500 }
     );
-  } finally {
-    // Putuskan koneksi prisma setelah selesai operasi
-    await prisma.$disconnect();
   }
 }

@@ -22,9 +22,21 @@ model Course {
   id          String       @id @default(uuid())
   title       String
   description String
+  instructorName String?    
+  imageUrl     String?      
+  videoUrl     String?      
+  chapters     Chapter[]
   enrollments Enrollment[]
   questions   Question[]   
   grades      Grade[]
+}
+
+model Chapter {
+  id        String   @id @default(uuid())
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title     String
+  summary   String
 }
 
 model Enrollment {

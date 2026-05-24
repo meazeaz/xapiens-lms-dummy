@@ -78,11 +78,6 @@ export default function DashboardLayout({
                   <span className="mr-3 text-gray-400">🎓</span> Certificates
                 </a>
               </li>
-              <li>
-                <a href="/dashboard/private-files" className="flex items-center px-6 py-3 hover:bg-gray-800 transition">
-                  <span className="mr-3 text-gray-400">📁</span> Private files
-                </a>
-              </li>
 
               {/* IMPLEMENTASI RBAC: Menu ini muncul jika yang login ADMIN atau INSTRUCTOR */}
               {(userRole === 'ADMIN' || userRole === 'INSTRUCTOR') && (

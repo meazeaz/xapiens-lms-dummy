@@ -76,44 +76,6 @@ export default async function CertificatesPage() {
             )}
           </div>
 
-          {/* SEKSI B: DOKUMEN / SERTIFIKAT EKSTERNAL (DARI PRIVATE FILES UPLOAD) */}
-          <div className="space-y-4 pt-4">
-            <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider border-b pb-2 flex items-center gap-2">
-              📁 External Private Portfolios ({externalUploadedFiles.length})
-            </h3>
-            
-            {externalUploadedFiles.length === 0 ? (
-              <div className="border border-gray-200 rounded-sm p-4 bg-gray-50 text-xs text-gray-500">
-                Belum ada berkas eksternal yang diunggah. Siswa dapat mengunggah portofolio tambahan melalui halaman <a href="/dashboard/private-files" className="text-blue-600 hover:underline">Private Files</a>.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {externalUploadedFiles.map((cert) => {
-                  // Hilangkan teks penanda '[Eksternal]' agar nama file asli terlihat bersih di layar
-                  const cleanFileName = cert.title.replace('[Eksternal] ', '');
-                  return (
-                    <div key={cert.id} className="border border-emerald-200 bg-emerald-50/10 p-5 rounded-sm flex items-center justify-between shadow-sm hover:border-emerald-400 transition">
-                      <div className="space-y-1 text-xs">
-                        <div className="font-bold text-emerald-600 uppercase tracking-wide">User Attachment File</div>
-                        <h4 className="text-sm font-medium text-gray-800 truncate max-w-[220px]" title={cleanFileName}>
-                          {cleanFileName}
-                        </h4>
-                        <p className="text-gray-400">
-                          Diunggah pada: {new Date(cert.issuedAt).toLocaleDateString('id-ID', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                          })}
-                        </p>
-                      </div>
-                      <div className="text-2xl p-2 bg-white border rounded-full shadow-sm select-none">📁</div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
         </div>
 
       </div>
