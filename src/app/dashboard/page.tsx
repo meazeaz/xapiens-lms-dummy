@@ -98,28 +98,6 @@ export default async function DashboardPage() {
 
           {/* KOLOM KANAN: TIMELINE & PENGINGAT (1 Kolom) */}
           <div className="space-y-6">
-            {/* Timeline Aktivitas */}
-            <div className="bg-white border border-gray-200 shadow-sm p-6">
-              <h3 className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wider border-b pb-2">
-                ⏳ Timeline Activity
-              </h3>
-              <div className="space-y-4 text-xs">
-                <div className="flex gap-3 items-start">
-                  <div className="p-1.5 bg-amber-50 border border-amber-200 text-amber-600 rounded-full">📝</div>
-                  <div>
-                    <p className="font-medium text-gray-800">Evaluasi Kuis Akademik TA</p>
-                    <p className="text-gray-400 text-[10px] mt-0.5">Wajib lulus dengan nilai minimal 70</p>
-                  </div>
-                </div>
-                <div className="flex gap-3 items-start">
-                  <div className="p-1.5 bg-blue-50 border border-blue-200 text-blue-600 rounded-full">📁</div>
-                  <div>
-                    <p className="font-medium text-gray-800">Unggah Dokumen Portofolio</p>
-                    <p className="text-gray-400 text-[10px] mt-0.5">Bisa dilakukan kapan saja via Private Files</p>
-                  </div>
-                </div>
-              </div>
-            </div>
 
             {/* Online Users Mockup */}
             <div className="bg-white border border-gray-200 shadow-sm p-6">
@@ -141,7 +119,7 @@ export default async function DashboardPage() {
       {/* FOOTER */}
       <footer className="bg-[#eef2f6] border-t border-gray-200 mt-10">
         <div className="bg-[#f97316] text-white text-center py-3 text-sm font-medium">
-          PROUDLY POWERED BY <span className="font-bold">Next.js & PostgreSQL (Dinamis Beranda)</span>
+          PROUDLY POWERED BY <span className="font-bold">Adinda Adhwa Nisrina Hanan</span>
         </div>
       </footer>
     </div>

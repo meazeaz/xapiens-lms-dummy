@@ -117,7 +117,7 @@ export default async function SiteHomePage() {
       {/* FOOTER */}
       <footer className="bg-[#eef2f6] border-t border-gray-200 mt-10">
         <div className="text-center py-4 bg-[#f97316] text-white text-sm font-medium">
-          PROUDLY POWERED BY <span className="font-bold">Next.js & PostgreSQL (Dinamis)</span>
+          POWERED BY <span className="font-bold">Adinda Adhwa Nisrina Hanan</span>
         </div>
       </footer>
     </div>

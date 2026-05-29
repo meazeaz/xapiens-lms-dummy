@@ -9,20 +9,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Data parameter tidak lengkap.' }, { status: 400 });
     }
 
-    // 1. Gunakan Transaction block agar penyimpanan Grade dan Certificate dieksekusi bersamaan demi konsistensi data TA
+    // Eksekusi aman dalam blok transaksi database kawan
     const result = await prisma.$transaction(async (tx) => {
-      // Simpan riwayat nilai ujian kuis
+      // 1. Simpan riwayat nilai kuis ke PostgreSQL
       const newGrade = await tx.grade.create({
         data: { userId, courseId, score, isPassed },
       });
 
-      // 2. KELULUSAN OTOMATIS: Jika isPassed bernilai true, terbitkan langsung baris sertifikatnya!
+      // 2. KELULUSAN OTOMATIS: Jika lulus, racik nomor sertifikat unik korporat!
       let newCertificate = null;
       if (isPassed) {
+        const tahun = new Date().getFullYear();
+        const bulan = String(new Date().getMonth() + 1).padStart(2, '0');
+        const acakKode = Math.floor(1000 + Math.random() * 9000); // Kode acak 4 digit
+        
+        // Format Nomor Sertifikat Industri Resmi Xapiens kawan
+        const nomorSertifikat = `CERT/XAPIENS/${tahun}/${bulan}/${acakKode}`;
+
         newCertificate = await tx.certificate.create({
           data: {
             userId,
-            title: courseTitle,
+            title: `${courseTitle}|${nomorSertifikat}`, // Kita titipkan nomor unik di kolom title dipisah tanda pipa (|) kawan
           },
         });
       }
@@ -31,8 +38,8 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ success: true, data: result }, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
     console.error('API Error Quiz:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
   }
 }
