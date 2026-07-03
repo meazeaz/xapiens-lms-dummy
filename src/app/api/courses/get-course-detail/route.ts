@@ -16,18 +16,16 @@ export async function GET(req: Request) {
   try {
     const course = await prisma.course.findUnique({
       where: { id: courseId },
-      include: { chapters: { orderBy: { title: 'asc' } } }
+      include: { chapters: true }
     });
 
     if (!course) return NextResponse.json({ error: 'Course tidak ditemukan' }, { status: 404 });
 
-    // 🌟 KUNCI PERBAIKAN DI SINI KAWAN:
-    // Cek apakah user ini sudah terdaftar (punya data Enrollment) di kelas ini
+    // Pasang pelindung data pendaftaran otomatis kawan
     const existingEnrollment = await prisma.enrollment.findFirst({
       where: { userId, courseId }
     });
 
-    // Jika belum ada, otomatis buatkan data pendaftarannya di PostgreSQL!
     if (!existingEnrollment) {
       await prisma.enrollment.create({
         data: {

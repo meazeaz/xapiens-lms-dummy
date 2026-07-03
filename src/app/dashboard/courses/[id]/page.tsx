@@ -26,7 +26,6 @@ export default function CourseDetailPage() {
   const courseId = params.id as string;
   
   const { data: session } = useSession();
-  const currentUserName = session?.user?.name || 'Student';
 
   const [course, setCourse] = useState<CourseData | null>(null);
   const [activeChapterId, setActiveChapterId] = useState<string>('');
@@ -72,21 +71,26 @@ export default function CourseDetailPage() {
   }, [courseId]);
 
   const markAsRead = async (chapterId: string) => {
-    // 1. Langsung update UI secara instan agar responsif kawan
-    if (!openedChapters.includes(chapterId)) {
-      setOpenedChapters(prev => [...prev, chapterId]);
-    }
+    // 1. Set bab yang diklik sebagai bab aktif di layar kawan
     setActiveChapterId(chapterId);
 
-    // 2. Kirim data ke database di latar belakang
-    try {
-      await fetch('/api/courses/mark-chapter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chapterId })
-      });
-    } catch (err) {
-      console.error('Gagal sinkronisasi progress ke postgres kawan:', err);
+    // 2. Jika belum ada di list opened, baru kita tambahkan dan kirim ke database
+    if (!openedChapters.includes(chapterId)) {
+      setOpenedChapters(prev => [...prev, chapterId]);
+      
+      try {
+        const res = await fetch('/api/courses/mark-chapter', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chapterId })
+        });
+
+        if (res.ok) {
+          router.refresh();
+        }
+      } catch (err) {
+        console.error('Gagal sinkronisasi progress kawan:', err);
+      }
     }
   };
 
@@ -107,7 +111,7 @@ export default function CourseDetailPage() {
   const activeChapter = course.chapters.find(ch => ch.id === activeChapterId) || course.chapters[0];
   const embedVideo = getYouTubeEmbedUrl(course.videoUrl);
   
-  // Logika validasi tombol kuis
+  // Logika validasi tombol kuis (Semua bab wajib dibaca)
   const isAllChaptersRead = course.chapters.every(ch => openedChapters.includes(ch.id));
 
   return (
@@ -129,18 +133,9 @@ export default function CourseDetailPage() {
           </div>
         </div>
 
-        {/* GUIDANCE BOX */}
-        <div className="p-4 bg-blue-50 border-l-4 border-blue-500 text-blue-800 text-xs rounded-sm shadow-sm flex justify-between items-center">
-          <div>
-            💡 <strong>PANDUAN BELAJAR:</strong> Klik pada kartu bab silabus di bawah secara berurutan. Setelah semua terbuka, akses Quiz Evaluasi di bawah otomatis aktif kawan.
-          </div>
-          {/* Tombol Bypass Rahasia Khusus Uji Coba Dosen agar cepat kawan */}
-          <button 
-            onClick={() => setOpenedChapters(course.chapters.map(c => c.id))}
-            className="text-[10px] bg-sky-600 text-white px-2 py-1 rounded-sm ml-2 hover:bg-sky-700 transition"
-          >
-            ⚡ Bypass Progress (Testing)
-          </button>
+        {/* GUIDANCE BOX — BERSIH TANPA TOMBOL BYPASS */}
+        <div className="p-4 bg-blue-50 border-l-4 border-blue-500 text-blue-800 text-xs rounded-sm shadow-sm">
+          💡 <strong>PANDUAN BELAJAR:</strong> Klik pada kartu bab silabus di bawah secara berurutan. Setelah semua terbuka, akses Quiz Evaluasi di bawah otomatis aktif kawan.
         </div>
 
         {/* GRID KARTU TOPIK BAB */}
@@ -149,7 +144,11 @@ export default function CourseDetailPage() {
             <p className="text-xs text-gray-400 italic col-span-full">Belum ada materi bab diinput untuk kelas ini kawan.</p>
           ) : (
             course.chapters.map((chapter, idx) => {
-              const isLocked = idx > 0 && !openedChapters.includes(course.chapters[idx - 1].id);
+              const isCurrentOpened = openedChapters.includes(chapter.id);
+              const isPreviousOpened = idx > 0 && openedChapters.includes(course.chapters[idx - 1].id);
+              
+              const isLocked = idx > 0 && !isCurrentOpened && !isPreviousOpened;
+
               return (
                 <div 
                   key={chapter.id} 

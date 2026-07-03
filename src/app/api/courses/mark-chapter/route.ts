@@ -11,7 +11,7 @@ export async function POST(req: Request) {
   const userId = (session.user as any).id;
 
   try {
-    // 1. Cari tahu bab ini milik kelas (Course) mana kawan
+    // 1. Ambil info bab untuk mencari tahu ID Kelas (courseId) kawan
     const targetChapter = await prisma.chapter.findUnique({
       where: { id: chapterId },
       select: { courseId: true }
@@ -23,33 +23,37 @@ export async function POST(req: Request) {
 
     const courseId = targetChapter.courseId;
 
-    // 2. Catat bahwa bab ini sudah berhasil dibuka oleh user
+    // 2. Simpan status keaktifan bab saat ini ke database PostgreSQL
     await prisma.chapterProgress.upsert({
       where: { userId_chapterId: { userId, chapterId } },
       update: { isOpened: true },
       create: { userId, chapterId, isOpened: true },
     });
 
-    // 3. Hitung total bab yang ada di kelas ini
-    const totalChapters = await prisma.chapter.count({
-      where: { courseId }
+    // 3. Ambil daftar semua ID Bab yang masuk ke dalam Kelas ini
+    const allChaptersInCourse = await prisma.chapter.findMany({
+      where: { courseId },
+      select: { id: true }
     });
 
-    // 4. Hitung berapa banyak bab yang sudah dibuka oleh user di kelas ini
+    const courseChapterIds = allChaptersInCourse.map(c => c.id);
+    const totalChapters = courseChapterIds.length;
+
+    // 4. Hitung berapa bab dari kelas ini yang sudah sukses dibuka oleh user
     const openedChaptersCount = await prisma.chapterProgress.count({
       where: {
         userId,
         isOpened: true,
-        chapter: { courseId } // Memastikan menghitung bab yang sekelas
+        chapterId: { in: courseChapterIds } // <-- Cara aman & akurat tanpa crash relasi kawan!
       }
     });
 
-    // 5. Rumus kalkulasi persentase progress LMS asli kawan!
+    // 5. Rumus dinamis mengikuti berapapun jumlah topiknya
     const progressPercent = totalChapters > 0 
       ? Math.round((openedChaptersCount / totalChapters) * 100) 
       : 0;
 
-    // 6. Update otomatis ke dalam tabel Enrollment agar Admin & User bisa lihat hasilnya
+    // 6. Tembak pembaruan ke tabel Enrollment kawan!
     await prisma.enrollment.updateMany({
       where: { userId, courseId },
       data: {
@@ -60,7 +64,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, progress: progressPercent });
   } catch (error) {
-    console.error('Error updating progress:', error);
+    console.error('Error saat kalkulasi progres kawan:', error);
     return NextResponse.json({ error: 'Gagal update progress' }, { status: 500 });
   }
 }
