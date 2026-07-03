@@ -57,21 +57,26 @@ export default function SiteAdministrationPage() {
 
   const fetchAdminData = async () => {
     try {
+      // 1. Ambil Data Pengguna Terdaftar kawan
       const resUsers = await fetch('/api/admin/get-users');
       if (resUsers.ok) {
         const data = await resUsers.json();
         setUsersList(data.users || []);
       }
 
+      // 2. Ambil Data Kursus Aktif kawan
       const resCourses = await fetch('/api/admin/get-courses'); 
       if (resCourses.ok) {
         const data = await resCourses.json();
         setCoursesList(data.courses || []);
       }
 
-      setGradesList([
-        { id: "g-1", user: { name: "Hanan (Student)", email: "hanan@gmail.com" }, course: { title: "IT Support & Service Management" }, score: 100, isPassed: true, createdAt: new Date().toLocaleDateString('id-ID') }
-      ]);
+      // 3. AMBIL DATA PROGRESS DAN NILAI REAL-TIME DARI POSTGRESQL KAWAN
+      const resGrades = await fetch('/api/admin/get-grades');
+      if (resGrades.ok) {
+        const data = await resGrades.json();
+        setGradesList(data.grades || []);
+      }
     } catch (err) { console.error(err); }
   };
 
@@ -92,7 +97,7 @@ export default function SiteAdministrationPage() {
     setUserName(user.name || '');
     setUserEmail(user.email || '');
     setUserRole(user.role || 'USER');
-    setUserPassword('');
+    setUserPassword(''); 
   };
 
   const cancelEditUserMode = () => {
@@ -133,7 +138,8 @@ export default function SiteAdministrationPage() {
     setLoading(true);
     setMessage({ text: '', isError: false });
 
-    const finalRoleToSend = loggedInUserRole === 'INSTRUCTOR' ? userRole : 'USER';
+    // Skenario Otoritas: Sembunyikan role tinggi jika aktor penginput hanya ADMIN biasa kawan
+    const finalRoleToSend = loggedInUserRole === 'SUPER_ADMIN' ? userRole : 'USER';
     const url = '/api/admin/create-user';
     const method = isEditingUser ? 'PUT' : 'POST';
     
@@ -310,7 +316,7 @@ export default function SiteAdministrationPage() {
     <div className="flex flex-col min-h-full font-sans bg-[#f4f6f8]">
       <div className="p-4 md:p-8 space-y-6 flex-grow">
         
-        {/* HEADER COMPONENT */}
+        {/* TOP COMPONENT HEADER */}
         <div className="bg-white border border-gray-200 shadow-sm p-6 rounded-sm">
           <h1 className="text-3xl font-light text-[#2b3a4a] mb-4">Site administration</h1>
           <div className="flex text-sm text-gray-500 gap-2">
@@ -335,14 +341,16 @@ export default function SiteAdministrationPage() {
           </div>
         </div>
 
-        {/* STATE TOAST FEEDBACK NOTIFICATION */}
+        {/* FEEDBACK STATUS MESSAGE BAR */}
         {message.text && (
           <div className={`p-3 text-xs font-medium border rounded-sm ${message.isError ? 'bg-red-50 text-red-700 border-red-300' : 'bg-green-50 text-green-700 border-green-300'}`}>
             {message.text}
           </div>
         )}
 
-        {/* TAB MENU 1: USERS */}
+        {/* ========================================================================= */}
+        {/* TAB MENU 1: USERS FORM DENGAN FITUR LENGKAP CRUD AKUN                    */}
+        {/* ========================================================================= */}
         {activeTab === 'Users' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="bg-white border border-gray-200 shadow-sm p-6 rounded-sm h-fit">
@@ -369,27 +377,33 @@ export default function SiteAdministrationPage() {
                   <input type="password" value={userPassword} onChange={(e) => setUserPassword(e.target.value)} className="w-full border p-2 text-gray-900 bg-white border-gray-300 rounded-sm outline-none" placeholder={isEditingUser ? "••••••••" : ""} required={!isEditingUser} />
                 </div>
                 
+                {/* AKTOR SINKRONISASI BARU KAWAN: SUPER_ADMIN & ADMIN */}
                 <div>
                   <label className="block text-gray-700 mb-1 font-semibold">Account Role Level (Otoritas)</label>
-                  {loggedInUserRole === 'INSTRUCTOR' ? (
+                  
+                  {loggedInUserRole === 'SUPER_ADMIN' ? (
                     <select 
                       value={userRole} 
                       onChange={(e) => setUserRole(e.target.value)} 
                       className="w-full border p-2 text-gray-900 bg-white border-gray-300 rounded-sm outline-none font-medium cursor-pointer focus:border-[#0ea5e9]"
                     >
                       <option value="USER">👤 STUDENT / REGULAR USER</option>
-                      <option value="ADMIN">⚙️ SUPER ADMIN (PENGELOLA)</option>
-                      <option value="INSTRUCTOR">👨‍🏫 INSTRUCTOR / OWNER</option>
+                      <option value="ADMIN">⚙️ ADMIN / INSTRUKTUR</option>
+                      <option value="SUPER_ADMIN">👑 SUPER ADMIN (OWNER)</option>
                     </select>
                   ) : (
-                    <select value="USER" disabled className="w-full border p-2 text-gray-400 bg-gray-50 border-gray-200 rounded-sm outline-none font-medium cursor-not-allowed">
+                    <select 
+                      value="USER" 
+                      disabled
+                      className="w-full border p-2 text-gray-400 bg-gray-50 border-gray-200 rounded-sm outline-none font-medium cursor-not-allowed"
+                    >
                       <option value="USER">👤 STUDENT / REGULAR USER (Locked)</option>
                     </select>
                   )}
                   <p className="text-[10px] text-gray-400 font-light mt-1.5 leading-relaxed">
-                    {loggedInUserRole === 'INSTRUCTOR' 
-                      ? '✓ Skenario Instruktur: Anda memiliki wewenang tertinggi untuk menunjuk pendaftar biasa, pengelola, maupun sesama pengawas kelas kawan.' 
-                      : '✕ Skenario Admin: Level kewenangan Anda dibatasi murni untuk mencetak akun Regular User (Murid) saja kawan.'}
+                    {loggedInUserRole === 'SUPER_ADMIN' 
+                      ? '✓ Hak Otoritas Tertinggi: Anda berhak mengatur seluruh tingkat akun pengguna sistem kawan.' 
+                      : '✕ Pembatasan Otoritas Admin: Anda murni hanya diizinkan mendaftarkan tingkat Regular User kawan.'}
                   </p>
                 </div>
 
@@ -399,6 +413,7 @@ export default function SiteAdministrationPage() {
               </form>
             </div>
             
+            {/* DAFTAR MONITORING USER YANG MASUK DAN AKTIF KAWAN */}
             <div className="lg:col-span-2 bg-white border border-gray-200 p-6 rounded-sm">
               <h3 className="text-sm font-semibold text-gray-700 uppercase border-b pb-2 mb-4">📋 Active Registered Users</h3>
               <div className="overflow-x-auto text-xs border rounded-sm">
@@ -408,7 +423,7 @@ export default function SiteAdministrationPage() {
                     {usersList.map(u => {
                       const isActionAllowed = 
                         u.id !== loggedInUserId && 
-                        (loggedInUserRole === 'INSTRUCTOR' || (loggedInUserRole === 'ADMIN' && u.role === 'USER'));
+                        (loggedInUserRole === 'SUPER_ADMIN' || (loggedInUserRole === 'ADMIN' && u.role === 'USER'));
 
                       return (
                         <tr key={u.id} className="border-b hover:bg-gray-50">
@@ -419,12 +434,8 @@ export default function SiteAdministrationPage() {
                           <td className="p-3 text-right space-x-1.5 whitespace-nowrap">
                             {isActionAllowed ? (
                               <>
-                                <button type="button" onClick={() => startEditUser(u)} className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-300 rounded-sm text-[10px] font-semibold hover:bg-amber-100 transition cursor-pointer">
-                                  📝 Edit
-                                </button>
-                                <button type="button" onClick={() => handleDeleteUser(u.id, u.name)} className="px-2 py-0.5 bg-red-50 text-red-700 border border-red-200 rounded-sm text-[10px] font-semibold hover:bg-red-100 transition cursor-pointer">
-                                  🗑️ Hapus
-                                </button>
+                                <button type="button" onClick={() => startEditUser(u)} className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-300 rounded-sm text-[10px] font-semibold hover:bg-amber-100 transition cursor-pointer">📝 Edit</button>
+                                <button type="button" onClick={() => handleDeleteUser(u.id, u.name)} className="px-2 py-0.5 bg-red-50 text-red-700 border border-red-200 rounded-sm text-[10px] font-semibold hover:bg-red-100 transition cursor-pointer">🗑️ Hapus</button>
                               </>
                             ) : (
                               <span className="text-gray-400 italic text-[10px] pr-2 select-none">No Privileges</span>
@@ -440,7 +451,7 @@ export default function SiteAdministrationPage() {
           </div>
         )}
 
-        {/* TAB MENU 2: COURSES */}
+        {/* TAB MENU 2: COURSES MANAGEMENT FORM */}
         {activeTab === 'Courses' && (
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             <div className="xl:col-span-2 bg-white border border-gray-200 shadow-sm p-6 md:p-8 rounded-sm h-fit">
@@ -455,7 +466,7 @@ export default function SiteAdministrationPage() {
               <form onSubmit={handleFormCourseSubmit} className="space-y-6 text-xs">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="md:col-span-2"><label className="block text-gray-700 font-semibold mb-1">Course Title (Judul Kelas)</label><input type="text" value={courseTitle || ''} onChange={(e) => setCourseTitle(e.target.value)} className="w-full border p-2.5 text-gray-900 bg-white border-gray-300 rounded-sm outline-none font-medium focus:border-[#0ea5e9]" placeholder="Contoh: Belajar Full-Stack Web Development" required /></div>
-                  <div><label className="block text-gray-700 font-semibold mb-1">Instructor Name</label><input type="text" value={instructorName || ''} onChange={(e) => setInstructorName(e.target.value)} className="w-full border p-2.5 text-gray-900 bg-white border-gray-300 rounded-sm outline-none font-medium focus:border-[#0ea5e9]" placeholder="Contoh: Affandi Abdul Aziz" required /></div>
+                  <div><label className="block text-gray-700 font-semibold mb-1">Instructor Name</label><input type="text" value={instructorName || ''} onChange={(e) => setInstructorName(e.target.value)} className="w-full border p-2.5 text-gray-900 bg-white border-gray-300 rounded-sm outline-none font-medium focus:border-[#0ea5e9]" placeholder="Contoh: Adinda" required /></div>
                 </div>
                 <div><label className="block text-gray-700 font-semibold mb-1">Course Description</label><textarea value={courseDesc || ''} onChange={(e) => setCourseDesc(e.target.value)} rows={2} className="w-full border p-2.5 text-gray-900 bg-white border-gray-300 rounded-sm outline-none font-medium focus:border-[#0ea5e9]" placeholder="Tuliskan deskripsi ringkas kelas..." required /></div>
 
@@ -483,15 +494,12 @@ export default function SiteAdministrationPage() {
                     <div key={index} className="bg-white p-4 border border-gray-200 rounded-sm space-y-3 relative shadow-sm">
                       <div className="flex justify-between items-center border-b pb-1"><span className="font-semibold text-gray-700 text-[12px]">Butir Pertanyaan #{index + 1}</span>{dynamicQuestions.length > 1 && <button type="button" onClick={() => removeQuestionField(index)} className="text-red-600 hover:text-red-800 text-[11px] font-medium cursor-pointer">❌ Hapus Soal</button>}</div>
                       <input type="text" value={question.questionText || ''} onChange={(e) => handleQuestionChange(index, 'questionText', e.target.value)} className="w-full border p-2.5 text-gray-900 bg-white border-gray-300 font-medium rounded-sm outline-none focus:border-amber-500" placeholder="Tulis butir soal kuis..." required />
-                      
-                      {/* AMAN: MEMANGGIL HANDLEQUESTIONCHANGE SECARA TEPAT KAWAN */}
                       <div className="grid grid-cols-2 gap-2 text-[11px]">
                         <input type="text" value={question.optionA || ''} onChange={(e) => handleQuestionChange(index, 'optionA', e.target.value)} className="border p-2 text-gray-900 bg-white border-gray-300 rounded-sm font-medium" placeholder="Opsi A" required />
                         <input type="text" value={question.optionB || ''} onChange={(e) => handleQuestionChange(index, 'optionB', e.target.value)} className="border p-2 text-gray-900 bg-white border-gray-300 rounded-sm font-medium" placeholder="Opsi B" required />
                         <input type="text" value={question.optionC || ''} onChange={(e) => handleQuestionChange(index, 'optionC', e.target.value)} className="border p-2 text-gray-900 bg-white border-gray-300 rounded-sm font-medium" placeholder="Opsi C" required />
                         <input type="text" value={question.optionD || ''} onChange={(e) => handleQuestionChange(index, 'optionD', e.target.value)} className="border p-2 text-gray-900 bg-white border-gray-300 rounded-sm font-medium" placeholder="Opsi D" required />
                       </div>
-                      
                       <div className="flex items-center gap-2 text-gray-700 font-medium"><span>Kunci Jawaban:</span><select value={question.correctOption} onChange={(e) => handleQuestionChange(index, 'correctOption', e.target.value)} className="border p-1 bg-white text-gray-900 border-gray-300 text-[11px] rounded-sm font-semibold outline-none cursor-pointer"><option value="A">Opsi (A)</option><option value="B">Opsi (B)</option><option value="C">Opsi (C)</option><option value="D">Opsi (D)</option></select></div>
                     </div>
                   ))}
@@ -520,16 +528,47 @@ export default function SiteAdministrationPage() {
           </div>
         )}
 
-        {/* TAB MENU 3: GRADES */}
+        {/* ========================================================================= */}
+        {/* TAB MENU 3: GRADES (MONITORING KELULUSAN & PROGRESS ASLI DATABASE)         */}
+        {/* ========================================================================= */}
         {activeTab === 'Grades' && (
           <div className="bg-white border border-gray-200 p-6 rounded-sm">
             <h3 className="text-lg font-normal text-gray-800 border-b pb-2 mb-4">📊 Student Quiz Competency Ledger</h3>
             <div className="overflow-x-auto text-xs border rounded-sm">
               <table className="w-full text-left">
-                <thead><tr className="bg-gray-50 border-b p-3 text-gray-600 font-semibold"><th className="p-3">Student Name</th><th className="p-3">Course Title</th><th className="p-3 text-center">Score</th><th className="p-3 text-center">Status</th></tr></thead>
-                <tbody className="text-gray-800">{gradesList.map(g => (
-                  <tr key={g.id} className="border-b hover:bg-gray-50"><td className="p-3 font-medium">{g.user.name}</td><td className="p-3 font-medium">{g.course.title}</td><td className="p-3 text-center font-bold">{g.score} / 100</td><td className="p-3 text-center"><span className="px-2 py-0.5 bg-green-100 text-green-700 font-bold rounded-sm">PASSED</span></td></tr>
-                ))}</tbody>
+                <thead>
+                  <tr className="bg-gray-50 border-b p-3 text-gray-600 font-semibold">
+                    <th className="p-3">Student Name</th>
+                    <th className="p-3">Course Title</th>
+                    <th className="p-3 text-center">Score Result</th>
+                    <th className="p-3 text-center">Status Progress</th>
+                  </tr>
+                </thead>
+                <tbody className="text-gray-800">
+                  {gradesList.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="p-4 text-center text-gray-400 italic">Belum ada siswa yang menyelesaikan kuis kelas kawan.</td>
+                    </tr>
+                  ) : (
+                    gradesList.map(g => (
+                      <tr key={g.id} className="border-b hover:bg-gray-50">
+                        <td className="p-3 font-medium">
+                          <p className="text-gray-900">{g.user?.name || 'Siswa Tanpa Nama'}</p>
+                          <p className="text-[10px] text-gray-400 font-mono">{g.user?.email}</p>
+                        </td>
+                        <td className="p-3 font-medium text-gray-700">{g.course?.title || 'Kelas Tidak Diketahui'}</td>
+                        <td className="p-3 text-center font-bold text-base">{g.score} / 100</td>
+                        <td className="p-3 text-center">
+                          {g.isPassed ? (
+                            <span className="px-2 py-1 bg-green-100 text-green-700 font-bold rounded-sm text-[10px]">PASSED & CERTIFIED</span>
+                          ) : (
+                            <span className="px-2 py-1 bg-red-100 text-red-700 font-bold rounded-sm text-[10px]">FAILED (STUDYING)</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
               </table>
             </div>
           </div>

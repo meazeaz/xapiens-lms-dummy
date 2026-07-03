@@ -20,21 +20,22 @@ async function main() {
   console.log('🧹 Database berhasil dibersihkan...');
 
   // 2. SEED DATA USER (Multi-Role)
+  // 2. SEED DATA USER (Multi-Role)
   await prisma.user.create({
     data: {
-      email: 'instruktur@gmail.com',
-      name: 'Adinda (Owner)',
+      email: 'superadmin@gmail.com', // Email disesuaikan agar lebih masuk akal
+      name: 'Adinda (Owner & Super Admin)',
       password: 'Adinda123',
-      role: 'INSTRUCTOR',
+      role: 'SUPER_ADMIN', // <-- Ini peran tertinggi yang baru kawan
     },
   });
 
   await prisma.user.create({
     data: {
       email: 'admin@gmail.com',
-      name: 'Super Admin (Pengelola)',
+      name: 'Instruktur / Admin (Pengelola)',
       password: 'admin123',
-      role: 'ADMIN',
+      role: 'ADMIN', // <-- Ini peran menengah
     },
   });
 

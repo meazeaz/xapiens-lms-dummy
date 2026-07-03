@@ -41,7 +41,7 @@ export default function DashboardLayout({
   return (
     <div className="min-h-screen bg-[#f4f6f8] flex flex-col font-sans">
       
-      {/* TOP NAVBAR — SEKARANG SUDAH BERSIH MINIMALIS KAWAN */}
+      {/* TOP NAVBAR */}
       <header className="h-14 bg-[#0a0a0a] text-white flex items-center justify-between px-4 z-20 sticky top-0">
         <div className="flex items-center space-x-4">
           <button className="text-gray-400 hover:text-white text-xl px-2 cursor-pointer">≡</button>
@@ -50,12 +50,11 @@ export default function DashboardLayout({
           </div>
         </div>
         
-        {/* AREA SISI KANAN NAVBAR (IKON MULTIMEDIA SUDAH TOTAL DIHAPUS) */}
         <div className="flex items-center text-gray-300 text-sm">
           <div className="flex items-center gap-2 pl-3">
             <div className="flex flex-col items-end leading-none hidden sm:flex select-none">
               <span className="text-xs font-medium text-white">{currentUser?.name}</span>
-              <span className="text-[10px] text-gray-400 font-light mt-0.5 capitalize">{userRole.toLowerCase()}</span>
+              <span className="text-[10px] text-gray-400 font-light mt-0.5 capitalize">{userRole.toLowerCase().replace('_', ' ')}</span>
             </div>
             <div className="w-8 h-8 bg-sky-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm select-none">
               {currentUser?.name?.charAt(0).toUpperCase()}
@@ -105,7 +104,9 @@ export default function DashboardLayout({
                   <span className="mr-3">🎓</span> Certificates
                 </a>
               </li>
-              {(userRole === 'ADMIN' || userRole === 'INSTRUCTOR') && (
+              
+              {/* SINKRONISASI BARU KAWAN: SUPER_ADMIN & ADMIN DAPAT HAK AKSES MENU UTAMA */}
+              {(userRole === 'ADMIN' || userRole === 'SUPER_ADMIN') && (
                 <li>
                   <a 
                     href="/dashboard/site-administration" 

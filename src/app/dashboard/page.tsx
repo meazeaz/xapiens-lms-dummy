@@ -5,20 +5,39 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { redirect } from 'next/navigation';
 
 export default async function DashboardPage() {
-  // 1. Amankan Sesi di Tingkat Server
+  // 1. Amankan Sesi di Tingkat Server kawan
   const session = await getServerSession(authOptions);
   if (!session) {
     redirect('/');
   }
 
-  // 2. Ambil data kursus secara realtime langsung dari PostgreSQL lewat Prisma
+  // 2. Ambil data kursus secara realtime langsung dari PostgreSQL
   const coursesFromDb = await prisma.course.findMany({
     include: {
-      questions: true, // Sertakan info bank soal jika diperlukan info tambahan
+      questions: true, 
     },
   });
 
-  // Array gambar fallback untuk banner kartu kelas agar terlihat profesional
+  // 3. TARIK DATA USER DARI DATABASE KAWAN
+  const allUsersFromDb = await prisma.user.findMany({
+    select: { id: true, name: true, role: true, email: true },
+    orderBy: { name: 'asc' }
+  });
+
+  const currentUserRole = (session.user as any)?.role || 'USER';
+  const currentUserId = (session.user as any)?.id || '';
+
+  // 4. LOGIKA FILTRASI DAFTAR PENGGUNA (DIPERKETAT!)
+  let displayedOnlineUsers = [];
+  if (currentUserRole === 'SUPER_ADMIN' || currentUserRole === 'ADMIN') {
+    // Super Admin & Admin tetap memiliki mata elang: bisa melihat SEMUA user yang terdaftar
+    displayedOnlineUsers = allUsersFromDb;
+  } else {
+    // PERBAIKAN: User biasa HANYA bisa melihat sesama 'USER' (Super Admin & Admin otomatis disembunyikan)
+    displayedOnlineUsers = allUsersFromDb.filter(u => u.role === 'USER' && u.id !== currentUserId);
+  }
+
+  // Array gambar fallback untuk banner kartu kelas
   const fallbackImages = [
     'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=600&auto=format&fit=crop',
     'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?q=80&w=600&auto=format&fit=crop',
@@ -52,13 +71,12 @@ export default async function DashboardPage() {
 
               {coursesFromDb.length === 0 ? (
                 <div className="text-center py-12 text-gray-400 text-sm">
-                  Belum ada kelas aktif yang terdaftar di database pgAdmin Anda.
+                  Belum ada kelas aktif yang terdaftar di database pgAdmin kawan.
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {coursesFromDb.map((course, index) => (
                     <div key={course.id} className="border border-gray-200 rounded-sm overflow-hidden flex flex-col hover:shadow-md transition bg-white">
-                      {/* Banner Kelas */}
                       <div className="h-32 bg-gray-100 relative">
                         <img 
                           src={fallbackImages[index % fallbackImages.length]} 
@@ -66,7 +84,6 @@ export default async function DashboardPage() {
                           className="w-full h-full object-cover" 
                         />
                       </div>
-                      {/* Informasi Kelas */}
                       <div className="p-4 flex flex-col flex-grow text-xs">
                         <span className="text-[10px] text-sky-600 font-bold uppercase tracking-wider mb-1">
                           Managed Service Dept
@@ -96,30 +113,38 @@ export default async function DashboardPage() {
             </div>
           </div>
 
-          {/* KOLOM KANAN: TIMELINE & PENGINGAT (1 Kolom) */}
+          {/* KOLOM KANAN: DAFTAR PENGGUNA TERDAFTAR KAWAN */}
           <div className="space-y-6">
-
-            {/* Online Users Mockup */}
-            <div className="bg-white border border-gray-200 shadow-sm p-6">
-              <h3 className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wider border-b pb-2">
-                👥 Online Users
+            <div className="bg-white border border-gray-200 shadow-sm p-6 space-y-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wider border-b pb-2 select-none">
+                👥 Registered Users ({displayedOnlineUsers.length})
               </h3>
-              <div className="flex items-center gap-2 text-xs text-gray-600">
-                <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="font-medium text-gray-800">{session.user?.name}</span>
-                <span className="text-gray-400 text-[10px]">(You)</span>
+              
+              <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
+                {displayedOnlineUsers.map((user) => (
+                  <div key={user.id} className="flex items-center justify-between bg-gray-50 p-2.5 rounded-sm border border-gray-100 hover:bg-gray-100/50 transition">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                      <span className="font-medium text-gray-800 text-xs">
+                        {user.name} {user.id === currentUserId && <span className="text-gray-400 text-[10px] font-normal">(You)</span>}
+                      </span>
+                    </div>
+                    <span className="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded-sm text-[9px] font-bold uppercase tracking-wide">
+                      {user.role === 'SUPER_ADMIN' ? 'Owner' : user.role.toLowerCase()}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
 
         </div>
-
       </div>
 
       {/* FOOTER */}
       <footer className="bg-[#eef2f6] border-t border-gray-200 mt-10">
         <div className="bg-[#f97316] text-white text-center py-3 text-sm font-medium">
-          PROUDLY POWERED BY <span className="font-bold">Adinda Adhwa Nisrina Hanan</span>
+          POWERED BY <span className="font-bold">Adinda Adhwa Nisrina Hanan</span>
         </div>
       </footer>
     </div>

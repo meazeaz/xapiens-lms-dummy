@@ -8,14 +8,14 @@ datasource db {
 }
 
 model User {
-  id           String        @id @default(uuid())
-  email        String        @unique // <-- Perbaikan: pakai @ bukan =
-  name         String
-  password     String
-  role         String        @default("USER") // "USER", "ADMIN", "INSTRUCTOR"
-  enrollments  Enrollment[]
-  certificates Certificate[]
-  grades       Grade[]
+  id            String        @id @default(uuid())
+  email         String        @unique
+  name          String
+  password      String
+  role          String        @default("USER") // Ubah catatannya jadi: "USER", "ADMIN", "SUPER_ADMIN"
+  enrollments   Enrollment[]
+  certificates  Certificate[]
+  grades        Grade[]
 }
 
 model Course {
