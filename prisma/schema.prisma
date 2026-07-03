@@ -8,56 +8,61 @@ datasource db {
 }
 
 model User {
-  id            String        @id @default(uuid())
-  email         String        @unique
-  name          String
-  password      String
-  role          String        @default("USER") // Ubah catatannya jadi: "USER", "ADMIN", "SUPER_ADMIN"
-  enrollments   Enrollment[]
-  certificates  Certificate[]
-  grades        Grade[]
+  id           String        @id @default(uuid())
+  email        String        @unique
+  name         String
+  password     String
+  role         String        @default("USER") // "USER", "ADMIN", "SUPER_ADMIN"
+  lastActiveAt    DateTime          @default(now())
+  enrollments  Enrollment[]
+  certificates Certificate[]
+  grades       Grade[]
+  chapterProgress ChapterProgress[]
 }
 
 model Course {
-  id          String       @id @default(uuid())
-  title       String
-  description String
+  id             String       @id @default(uuid())
+  title          String
+  description    String
   instructorName String?    
-  imageUrl     String?      
-  videoUrl     String?      
-  chapters     Chapter[]
-  enrollments Enrollment[]
-  questions   Question[]   
-  grades      Grade[]
+  imageUrl       String?      
+  videoUrl       String?      
+  chapters       Chapter[]
+  enrollments    Enrollment[]
+  questions      Question[]   
+  grades         Grade[]
 }
 
 model Chapter {
-  id        String   @id @default(uuid())
-  courseId  String
-  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  title     String
-  summary   String
+  id       String @id @default(uuid())
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title    String
+  summary  String
 }
 
 model Enrollment {
   id         String   @id @default(uuid())
   userId     String
   courseId   String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade) // <-- Perbaikan: pakai @ bukan =
+  progress   Int      @default(0)
+  status     String   @default("ONGOING")
   enrolledAt DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
 }
 
 model Question {
-  id            String   @id @default(uuid())
+  id            String @id @default(uuid())
   courseId      String
-  course        Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course        Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
   questionText  String   
   optionA       String
   optionB       String
   optionC       String
   optionD       String
-  correctOption String   // "A", "B", "C", atau "D"
+  correctOption String // "A", "B", "C", atau "D"
 }
 
 model Grade {
@@ -77,4 +82,24 @@ model Certificate {
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   title    String   
   issuedAt DateTime @default(now())
+}
+
+model ChapterProgress {
+  id        String   @id @default(uuid())
+  userId    String
+  chapterId String
+  isOpened  Boolean  @default(false)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, chapterId]) // Mencegah duplikasi data
+}
+
+model ChapterProgress {
+  id        String   @id @default(uuid())
+  userId    String
+  chapterId String
+  isOpened  Boolean  @default(false)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, chapterId])
 }

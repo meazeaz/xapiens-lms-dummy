@@ -11,30 +11,46 @@ export default async function DashboardPage() {
     redirect('/');
   }
 
-  // 2. Ambil data kursus secara realtime langsung dari PostgreSQL
-  const coursesFromDb = await prisma.course.findMany({
-    include: {
-      questions: true, 
-    },
-  });
-
-  // 3. TARIK DATA USER DARI DATABASE KAWAN
-  const allUsersFromDb = await prisma.user.findMany({
-    select: { id: true, name: true, role: true, email: true },
-    orderBy: { name: 'asc' }
-  });
-
   const currentUserRole = (session.user as any)?.role || 'USER';
   const currentUserId = (session.user as any)?.id || '';
 
-  // 4. LOGIKA FILTRASI DAFTAR PENGGUNA (DIPERKETAT!)
+  // 2. Ambil data kursus secara realtime langsung dari PostgreSQL
+  const coursesFromDb = await prisma.course.findMany({
+    include: {
+      questions: true,
+      enrollments: {
+        where: {
+          userId: currentUserId,
+        },
+      },
+    },
+  });
+
+  // 3. TARIK DATA USER DARI DATABASE BESERTA WAKTU AKTIF TERAKHIRNYA
+  const allUsersFromDb = await prisma.user.findMany({
+    select: { id: true, name: true, role: true, email: true, lastActiveAt: true },
+    orderBy: { name: 'asc' }
+  });
+
+  // Tentukan batas waktu online: 1 menit yang lalu (60000 ms) dari sekarang kawan
+  const ONE_MINUTE_AGO = new Date(Date.now() - 60000);
+
+  // Filter awal: Hanya masukkan pengguna yang statusnya aktif dan abaikan diri sendiri
+  const onlineUsersRaw = allUsersFromDb.filter(u => 
+    new Date(u.lastActiveAt) >= ONE_MINUTE_AGO && u.id !== currentUserId
+  );
+
+  // 4. LOGIKA FILTRASI DAFTAR PENGGUNA ONLINE BERDASARKAN LEVEL OTORITAS
   let displayedOnlineUsers = [];
-  if (currentUserRole === 'SUPER_ADMIN' || currentUserRole === 'ADMIN') {
-    // Super Admin & Admin tetap memiliki mata elang: bisa melihat SEMUA user yang terdaftar
-    displayedOnlineUsers = allUsersFromDb;
+  if (currentUserRole === 'SUPER_ADMIN') {
+    // Super Admin memantau semuanya: Super Admin lain, Admin, dan User
+    displayedOnlineUsers = onlineUsersRaw;
+  } else if (currentUserRole === 'ADMIN') {
+    // Admin hanya diizinkan memantau sesama Admin dan User biasa (Super Admin disembunyikan)
+    displayedOnlineUsers = onlineUsersRaw.filter(u => u.role === 'ADMIN' || u.role === 'USER');
   } else {
-    // PERBAIKAN: User biasa HANYA bisa melihat sesama 'USER' (Super Admin & Admin otomatis disembunyikan)
-    displayedOnlineUsers = allUsersFromDb.filter(u => u.role === 'USER' && u.id !== currentUserId);
+    // Regular User murni HANYA bisa melihat sesama User biasa (Admin & Super Admin aman tersembunyi)
+    displayedOnlineUsers = onlineUsersRaw.filter(u => u.role === 'USER');
   }
 
   // Array gambar fallback untuk banner kartu kelas
@@ -69,13 +85,13 @@ export default async function DashboardPage() {
                 📋 My Enrolled Courses
               </h2>
 
-              {coursesFromDb.length === 0 ? (
+              {coursesFromDb?.length === 0 ? (
                 <div className="text-center py-12 text-gray-400 text-sm">
                   Belum ada kelas aktif yang terdaftar di database pgAdmin kawan.
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {coursesFromDb.map((course, index) => (
+                  {coursesFromDb?.map((course, index) => (
                     <div key={course.id} className="border border-gray-200 rounded-sm overflow-hidden flex flex-col hover:shadow-md transition bg-white">
                       <div className="h-32 bg-gray-100 relative">
                         <img 
@@ -94,9 +110,31 @@ export default async function DashboardPage() {
                         <p className="text-gray-500 line-clamp-2 mb-4 leading-relaxed">
                           {course.description}
                         </p>
+                        
+                        {/* TAMPILAN PROGRESS BAR KAWAN (DENGAN PELINDUNG) */}
+                        {course.enrollments?.length > 0 ? (
+                          <div className="mb-4">
+                            <div className="flex justify-between items-center mb-1 text-[10px]">
+                              <span className="text-gray-500 font-medium">Progress Belajar:</span>
+                              <span className="font-bold text-[#0ea5e9]">{course.enrollments[0].progress}%</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-1.5">
+                              <div 
+                                className="bg-[#0ea5e9] h-1.5 rounded-full" 
+                                style={{ width: `${course.enrollments[0].progress}%` }}
+                              ></div>
+                            </div>
+                            <span className="text-[9px] text-gray-400 mt-1 block">Status: {course.enrollments[0].status}</span>
+                          </div>
+                        ) : (
+                          <div className="mb-4 text-[10px] text-gray-400 italic">
+                            Belum memulai kelas ini.
+                          </div>
+                        )}
+
                         <div className="mt-auto pt-2 border-t flex justify-between items-center">
                           <span className="text-[10px] text-gray-400">
-                            🎯 {course.questions.length} Quiz Questions
+                            🎯 {course.questions?.length || 0} Quiz Questions
                           </span>
                           <a 
                             href={`/dashboard/courses/${course.id}`} 
@@ -113,27 +151,31 @@ export default async function DashboardPage() {
             </div>
           </div>
 
-          {/* KOLOM KANAN: DAFTAR PENGGUNA TERDAFTAR KAWAN */}
+          {/* KOLOM KANAN: MONITORING PENGGUNA ONLINE REAL-TIME */}
           <div className="space-y-6">
             <div className="bg-white border border-gray-200 shadow-sm p-6 space-y-4">
-              <h3 className="text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wider border-b pb-2 select-none">
-                👥 Registered Users ({displayedOnlineUsers.length})
+              <h3 className="text-sm font-semibold text-[#0ea5e9] mb-2 uppercase tracking-wider border-b pb-2 select-none">
+                🟢 Online Users ({displayedOnlineUsers?.length || 0})
               </h3>
               
               <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
-                {displayedOnlineUsers.map((user) => (
-                  <div key={user.id} className="flex items-center justify-between bg-gray-50 p-2.5 rounded-sm border border-gray-100 hover:bg-gray-100/50 transition">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                      <span className="font-medium text-gray-800 text-xs">
-                        {user.name} {user.id === currentUserId && <span className="text-gray-400 text-[10px] font-normal">(You)</span>}
+                {displayedOnlineUsers?.length === 0 ? (
+                  <p className="text-gray-400 italic text-[11px] text-center py-4">Tidak ada pengguna lain yang sedang online kawan.</p>
+                ) : (
+                  displayedOnlineUsers?.map((user) => (
+                    <div key={user.id} className="flex items-center justify-between bg-gray-50 p-2.5 rounded-sm border border-gray-100 hover:bg-gray-100/50 transition">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span className="font-medium text-gray-800 text-xs">
+                          {user.name}
+                        </span>
+                      </div>
+                      <span className="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded-sm text-[9px] font-bold uppercase tracking-wide">
+                        {user.role === 'SUPER_ADMIN' ? 'Owner' : user.role.toLowerCase()}
                       </span>
                     </div>
-                    <span className="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded-sm text-[9px] font-bold uppercase tracking-wide">
-                      {user.role === 'SUPER_ADMIN' ? 'Owner' : user.role.toLowerCase()}
-                    </span>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           </div>

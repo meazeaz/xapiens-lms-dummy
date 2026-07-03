@@ -3,6 +3,7 @@
 import React, { useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter, usePathname } from 'next/navigation';
+import Heartbeat from './components/Heartbeat';
 
 export default function DashboardLayout({
   children,
@@ -40,6 +41,8 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-[#f4f6f8] flex flex-col font-sans">
+      {/* 🟢 Mengaktifkan pengirim sinyal online gaib di latar belakang browser */}
+      <Heartbeat />
       
       {/* TOP NAVBAR */}
       <header className="h-14 bg-[#0a0a0a] text-white flex items-center justify-between px-4 z-20 sticky top-0">
