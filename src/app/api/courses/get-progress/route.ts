@@ -14,12 +14,20 @@ export async function GET(req: Request) {
   if (!courseId) return NextResponse.json({ error: 'Missing courseId' }, { status: 400 });
 
   try {
-    // Ambil semua bab yang sudah sukses dibuka oleh user di kelas ini
+    // 1. Ambil semua ID Bab yang terdaftar di dalam Kelas ini kawan
+    const allChaptersInCourse = await prisma.chapter.findMany({
+      where: { courseId },
+      select: { id: true }
+    });
+
+    const courseChapterIds = allChaptersInCourse.map(c => c.id);
+
+    // 2. Cari bab dari list di atas yang sudah sukses dibuka oleh user ini
     const progressRecords = await prisma.chapterProgress.findMany({
       where: {
         userId,
         isOpened: true,
-        chapter: { courseId }
+        chapterId: { in: courseChapterIds } // <-- Solusi aman tanpa crash relasi kawan!
       },
       select: { chapterId: true }
     });
@@ -27,7 +35,7 @@ export async function GET(req: Request) {
     const openedIds = progressRecords.map(r => r.chapterId);
     return NextResponse.json({ openedIds });
   } catch (error) {
-    console.error(error);
+    console.error('Error saat memuat progres kawan:', error);
     return NextResponse.json({ error: 'Gagal memuat progress' }, { status: 500 });
   }
 }

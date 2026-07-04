@@ -133,7 +133,7 @@ export default function CourseDetailPage() {
           </div>
         </div>
 
-        {/* GUIDANCE BOX — BERSIH TANPA TOMBOL BYPASS */}
+        {/* GUIDANCE BOX */}
         <div className="p-4 bg-blue-50 border-l-4 border-blue-500 text-blue-800 text-xs rounded-sm shadow-sm">
           💡 <strong>PANDUAN BELAJAR:</strong> Klik pada kartu bab silabus di bawah secara berurutan. Setelah semua terbuka, akses Quiz Evaluasi di bawah otomatis aktif kawan.
         </div>
@@ -144,9 +144,12 @@ export default function CourseDetailPage() {
             <p className="text-xs text-gray-400 italic col-span-full">Belum ada materi bab diinput untuk kelas ini kawan.</p>
           ) : (
             course.chapters.map((chapter, idx) => {
+              // 🌟 FORMULA PERBAIKAN BARU SINKRONISASI KUNCI:
               const isCurrentOpened = openedChapters.includes(chapter.id);
               const isPreviousOpened = idx > 0 && openedChapters.includes(course.chapters[idx - 1].id);
               
+              // Bab pertama otomatis terbuka (idx === 0)
+              // Bab lain terbuka jika dirinya sudah pernah dibuka ATAU bab sebelumnya sudah pernah dibuka
               const isLocked = idx > 0 && !isCurrentOpened && !isPreviousOpened;
 
               return (
